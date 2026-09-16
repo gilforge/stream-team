@@ -121,3 +121,33 @@ func TestAllerRetourCompletSurCollectionsRéelles(t *testing.T) {
 		})
 	}
 }
+
+// TestChemainsÉtrangersSurCollectionsRéelles n'échoue jamais : il renseigne.
+// Il dit combien de fichiers d'une collection réelle échapperaient au dossier
+// d'assets, et devraient donc y être déplacés avant de publier.
+func TestCheminsÉtrangersSurCollectionsRéelles(t *testing.T) {
+	const dossierAssets = `C:\StreamAssets`
+
+	for _, path := range collectionsRéelles(t) {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		c, err := Decode(data)
+		if err != nil {
+			continue
+		}
+		étrangers := ForeignPaths(c, dossierAssets)
+		if len(étrangers) == 0 {
+			continue
+		}
+		t.Logf("%s : %d chemin(s) hors du dossier d'assets", filepath.Base(path), len(étrangers))
+		for i, p := range étrangers {
+			if i == 8 {
+				t.Logf("    … et %d autres", len(étrangers)-8)
+				break
+			}
+			t.Logf("    %s", p)
+		}
+	}
+}

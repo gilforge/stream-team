@@ -51,6 +51,10 @@ type Report struct {
 	CanvasChanged bool
 	Unconfigured  []string
 	Published     bool
+
+	// ForeignPaths recense les fichiers référencés hors du dossier d'assets :
+	// ils partent avec leur chemin complet et n'existeront chez aucun équipier.
+	ForeignPaths []string
 }
 
 func (e *Engine) collectionPath() (string, error) {

@@ -2,6 +2,7 @@ package obs
 
 import (
 	"encoding/json"
+	"sort"
 	"strings"
 )
 
@@ -45,6 +46,56 @@ func Expand(c *Collection, assetsDir string) int {
 		return strings.ReplaceAll(s, AssetsToken, prefix), true
 	})
 	return count
+}
+
+// ForeignPaths liste les chemins absolus qui échappent au dossier d'assets.
+//
+// Ce sont les pièges d'une première publication : une image laissée sur le
+// bureau ou une vidéo restée dans un dossier de téléchargement part telle
+// quelle, avec son chemin complet, et n'existe chez personne d'autre. Le membre
+// qui reçoit voit une source vide sans comprendre pourquoi.
+//
+// On les signale plutôt que de les corriger : déplacer les fichiers de
+// quelqu'un serait bien plus surprenant que de l'avertir.
+func ForeignPaths(c *Collection, assetsDir string) []string {
+	prefix := strings.ToLower(normalizePath(assetsDir))
+	vus := map[string]bool{}
+	var out []string
+
+	walkStrings(c.Data, func(s string) (string, bool) {
+		if !ressembleÀUnChemin(s) {
+			return s, false
+		}
+		cand := strings.ToLower(normalizePath(s))
+		if prefix != "" && strings.HasPrefix(cand, prefix) {
+			return s, false
+		}
+		if !vus[cand] {
+			vus[cand] = true
+			out = append(out, s)
+		}
+		return s, false
+	})
+	sort.Strings(out)
+	return out
+}
+
+// ressembleÀUnChemin reconnaît un chemin absolu local sans se laisser prendre
+// par une URL : une source navigateur pointant sur le web est parfaitement
+// partageable.
+func ressembleÀUnChemin(s string) bool {
+	if s == "" || strings.Contains(s, AssetsToken) {
+		return false
+	}
+	if strings.Contains(s, "://") {
+		return false // http://, https://, srt://…
+	}
+	p := normalizePath(s)
+	// Lettre de lecteur Windows, ou chemin Unix absolu.
+	if len(p) >= 3 && p[1] == ':' && p[2] == '/' {
+		return true
+	}
+	return strings.HasPrefix(p, "/") && strings.Contains(p, ".")
 }
 
 // MissingAssets liste les chemins tokenisés d'une collection, pour vérifier que

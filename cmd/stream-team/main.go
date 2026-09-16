@@ -19,6 +19,7 @@ import (
 	"github.com/gilforge/stream-team/internal/config"
 	"github.com/gilforge/stream-team/internal/dock"
 	"github.com/gilforge/stream-team/internal/launcher"
+	"github.com/gilforge/stream-team/internal/manifest"
 	"github.com/gilforge/stream-team/internal/obs"
 	"github.com/gilforge/stream-team/internal/pipeline"
 	"github.com/gilforge/stream-team/internal/storage"
@@ -217,10 +218,25 @@ func setup(cfg *config.Config) error {
 		return err
 	}
 	fmt.Println("  Vérification…")
-	if err := reader.Probe(context.Background()); err != nil {
+	res, err := reader.Probe(context.Background(), manifest.Name)
+	if err != nil {
 		return fmt.Errorf("adresse inutilisable : %w", err)
 	}
-	fmt.Println("  Régie joignable.")
+	switch {
+	case res.ManifestFound:
+		fmt.Println("  Régie joignable et déjà alimentée.")
+	case res.DirExists:
+		fmt.Println("  Dossier joignable, mais encore vide.")
+		fmt.Println("  Le responsable de l'équipe doit publier une première fois :")
+		fmt.Println("      stream-team -publish -m \"mise en place\"")
+	default:
+		// Ni le dossier ni le manifeste : le plus souvent un chemin mal
+		// recopié. Mais ce peut aussi être un dossier que le dépôt FTP n'a pas
+		// encore créé, donc on avertit sans bloquer.
+		fmt.Println("  Attention : ce dossier ne répond pas encore sur le serveur.")
+		fmt.Println("  Vérifiez l'adresse ; s'il doit être créé par la première")
+		fmt.Println("  publication, vous pouvez continuer.")
+	}
 	fmt.Println()
 
 	defaultAssets := filepath.Join(os.Getenv("USERPROFILE"), "StreamAssets")

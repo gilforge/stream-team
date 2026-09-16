@@ -14,3 +14,4 @@
 *.tmp
 *.part
 .DS_Store
+*.exe~

@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -120,15 +121,52 @@ func (r *HTTPReader) do(ctx context.Context, p string, noCache bool) (*http.Resp
 	return resp, nil
 }
 
-// Probe valide une adresse au moment où l'utilisateur la saisit, et distingue
-// les erreurs qu'il peut réellement corriger.
-func (r *HTTPReader) Probe(ctx context.Context) error {
-	data, err := r.GetNoCache(ctx, "manifest.json")
-	if err != nil {
-		return err
+// ProbeResult décrit ce qu'on a pu apprendre d'une adresse. Une régie vide est
+// un état parfaitement normal — c'est celui d'un dossier qu'on vient de créer —
+// donc l'absence de manifeste n'est pas une erreur, seulement une information.
+type ProbeResult struct {
+	DirExists     bool // la racine du dossier ne renvoie pas 404
+	ManifestFound bool
+}
+
+// Probe valide une adresse au moment où l'utilisateur la saisit.
+//
+// Elle ne renvoie d'erreur que pour ce qu'il peut réellement corriger sur-le-
+// champ : un domaine injoignable, un certificat invalide, une adresse qui rend
+// une page web au lieu d'un manifeste. Le reste est rapporté tel quel, à charge
+// pour l'appelant d'en tirer le bon message.
+func (r *HTTPReader) Probe(ctx context.Context, manifestPath string) (ProbeResult, error) {
+	var out ProbeResult
+
+	// La racine du dossier : un 404 ici signale presque toujours un chemin mal
+	// recopié, tandis qu'un 403 ou un listing signifie que le dossier est là.
+	if _, err := r.Get(ctx, "."); err == nil {
+		out.DirExists = true
+	} else if !errors.Is(err, ErrNotFound) {
+		if estRéseau(err) {
+			return out, err
+		}
+		out.DirExists = true // 403 sur un dossier sans index : il existe bel et bien
 	}
+
+	data, err := r.GetNoCache(ctx, manifestPath)
+	switch {
+	case errors.Is(err, ErrNotFound):
+		return out, nil
+	case err != nil:
+		return out, err
+	}
+
 	if len(data) > 0 && data[0] == '<' {
-		return fmt.Errorf("l'adresse renvoie une page web, pas un manifeste — pointe-t-elle bien sur le dossier de la régie ?")
+		return out, fmt.Errorf("l'adresse rend une page web au lieu d'un manifeste — pointe-t-elle bien sur le dossier de la régie ?")
 	}
-	return nil
+	out.DirExists, out.ManifestFound = true, true
+	return out, nil
+}
+
+// estRéseau distingue « le serveur a répondu quelque chose » de « on n'a pas pu
+// lui parler ».
+func estRéseau(err error) bool {
+	var urlErr *url.Error
+	return errors.As(err, &urlErr)
 }

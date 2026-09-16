@@ -5,10 +5,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -48,6 +48,14 @@ func (e *Engine) Publish(ctx context.Context, message string, progress func(stri
 	// d'appareil : ce sont les deux choses qui ne valent que sur cette machine.
 	obs.Tokenize(c, e.Cfg.AssetsDir)
 	obs.StripLocal(c)
+
+	// Ce qui reste en chemin absolu après tokenisation ne sera trouvable chez
+	// personne. On publie quand même — c'est le choix du publieur — mais il
+	// doit le savoir avant que l'équipe ne découvre des sources vides.
+	rep.ForeignPaths = obs.ForeignPaths(c, e.Cfg.AssetsDir)
+	for _, p := range rep.ForeignPaths {
+		progress("Hors du dossier d'assets, introuvable chez les autres : " + p)
+	}
 	payload, err := c.Normalize()
 	if err != nil {
 		return nil, err
@@ -118,9 +126,12 @@ func (e *Engine) Publish(ctx context.Context, message string, progress func(stri
 	}
 
 	progress("Inventaire des assets…")
-	files, err := e.scanAssets()
+	files, introuvables, err := e.referencedAssets(c)
 	if err != nil {
 		return nil, err
+	}
+	for _, p := range introuvables {
+		progress("Référencé mais absent du disque, non publié : " + p)
 	}
 
 	for _, f := range files {
@@ -213,49 +224,47 @@ func (e *Engine) archive(ctx context.Context, w storage.Writer, base string, m *
 	return w.Put(ctx, joinRemote(base, dir+"/collection.json"), bytes.NewReader(collection))
 }
 
-// scanAssets inventorie le dossier d'assets local. On publie le dossier entier
-// plutôt que les seuls fichiers référencés : c'est prévisible, et une image
-// ajoutée pour la semaine prochaine part avec le reste.
-func (e *Engine) scanAssets() ([]manifest.File, error) {
-	root := e.Cfg.AssetsDir
-	if root == "" {
-		return nil, nil
-	}
-	if _, err := os.Stat(root); os.IsNotExist(err) {
-		return nil, nil
-	}
-
+// referencedAssets n'inventorie que les fichiers dont la collection a besoin.
+//
+// Publier le dossier d'assets entier serait plus simple à expliquer, mais un
+// dossier de travail contient des sources de montage, des archives et des
+// fichiers de projet qui n'ont rien à faire sur la régie : on y enverrait des
+// gigaoctets que personne ne téléchargera. La liste des chemins tokenisés dit
+// exactement ce qui est utile.
+//
+// Renvoie aussi les fichiers référencés mais absents du disque : l'auteur doit
+// le savoir avant que l'équipe ne découvre des sources vides.
+func (e *Engine) referencedAssets(c *obs.Collection) ([]manifest.File, []string, error) {
+	vus := map[string]bool{}
 	var out []manifest.File
-	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
+	var introuvables []string
+
+	for _, ref := range obs.MissingAssets(c) {
+		rel := strings.TrimPrefix(strings.TrimPrefix(ref, obs.AssetsToken), "/")
+		if rel == "" || vus[rel] {
+			continue
 		}
-		name := d.Name()
-		if strings.HasPrefix(name, ".") {
-			if d.IsDir() {
-				return fs.SkipDir
+		vus[rel] = true
+
+		local := filepath.Join(e.Cfg.AssetsDir, filepath.FromSlash(rel))
+		sum, size, err := fileSHA(local)
+		if err != nil {
+			if os.IsNotExist(err) {
+				introuvables = append(introuvables, rel)
+				continue
 			}
-			return nil
-		}
-		if d.IsDir() || strings.HasSuffix(name, ".part") || strings.HasSuffix(name, ".tmp") {
-			return nil
-		}
-		rel, err := filepath.Rel(root, p)
-		if err != nil {
-			return err
-		}
-		sum, size, err := fileSHA(p)
-		if err != nil {
-			return err
+			return nil, nil, err
 		}
 		out = append(out, manifest.File{
-			Path:   "assets/" + filepath.ToSlash(rel),
+			Path:   "assets/" + rel,
 			Size:   size,
 			SHA256: sum,
 		})
-		return nil
-	})
-	return out, err
+	}
+
+	sort.Slice(out, func(i, j int) bool { return out[i].Path < out[j].Path })
+	sort.Strings(introuvables)
+	return out, introuvables, nil
 }
 
 func joinRemote(base, rel string) string {
