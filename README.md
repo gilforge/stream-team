@@ -161,13 +161,38 @@ installé. C'est ce test qui a révélé le traitement fautif de `device_id:
 
 ## À faire
 
+Relevé en éprouvant l'outil sur une vraie équipe, par ordre de gêne constatée.
+
+- **Sélectionner la collection au lancement.** L'agent écrit bien le fichier
+  avant d'ouvrir OBS, mais OBS rouvre la dernière collection utilisée sur la
+  machine. Sur un poste neuf, il faut donc basculer à la main une première fois
+  via `Collection de scènes`, sans quoi on croit que rien n'est arrivé. Se joue
+  dans la configuration globale d'OBS, à ne pas modifier à l'aveugle.
+- **Refuser une adresse sans manifeste quand le poste n'est pas publieur.**
+  L'assistant tolère une régie qui ne répond pas, pour permettre d'en amorcer
+  une vide. Mais un membre qui se trompe d'adresse s'en aperçoit trop tard.
+  La présence de `publisher.json` distingue déjà les deux cas.
+- **Vérifier que la scène active ne compte pas comme une modification.** OBS
+  enregistre `current_scene` dans la collection : si basculer de scène pendant
+  un stream fait passer le dock en « modifié », il faut exclure ces champs du
+  calcul d'empreinte, sinon l'outil réclame une publication après chaque
+  session.
+- Inscription automatique du dock dans la configuration d'OBS (même prudence
+  que pour la collection : écrire au mauvais endroit casserait la
+  configuration de l'utilisateur).
 - Assistant de premier lancement en fenêtre plutôt qu'en console.
-- Inscription automatique du dock dans la configuration d'OBS (la clé exacte de
-  `global.ini` / `user.ini` reste à vérifier sur plusieurs versions ; écrire au
-  mauvais endroit casserait la configuration de l'utilisateur).
 - Retour à une version antérieure depuis le dock (`versions/` est déjà rempli).
 - Localisation de l'exécutable d'OBS par la base de registre, en complément des
   emplacements usuels.
+
+## Où en est l'outil
+
+Éprouvé de bout en bout sur un cas réel : régie publiée en v1 sur un
+hébergement mutualisé o2switch (26 assets, 50 Mo), reçue sur un second poste.
+32 tests passent, `go vet` est propre, le dépôt se compile hors ligne.
+
+Reste à confirmer sur la durée : le cycle complet publier/recevoir entre deux
+membres au fil de vraies sessions de stream.
 
 ## Hébergements mutualisés : deux pièges du FTPS
 
