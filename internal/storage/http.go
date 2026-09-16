@@ -113,7 +113,7 @@ func (r *HTTPReader) do(ctx context.Context, p string, noCache bool) (*http.Resp
 	if resp.StatusCode != http.StatusOK {
 		resp.Body.Close()
 		if resp.StatusCode == http.StatusNotFound {
-			return nil, fmt.Errorf("%s est introuvable sur la régie (404) — vérifiez l'adresse", p)
+			return nil, fmt.Errorf("%s est introuvable sur la régie : %w", p, ErrNotFound)
 		}
 		return nil, fmt.Errorf("la régie répond %s pour %s", resp.Status, p)
 	}

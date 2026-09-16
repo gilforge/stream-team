@@ -108,6 +108,19 @@ d'une collection de scènes ne se fusionnent pas : le dernier qui publie a
 raison. Une publication partie d'une version périmée est refusée, et la
 divergence locale est signalée dans le dock — mais il n'y a ni verrou ni fusion.
 
+## Amorcer une régie
+
+Un dossier neuf chez l'hébergeur ne contient rien : il n'y a donc rien à
+recevoir, et la première version doit y être déposée. Depuis le poste qui a son
+`publisher.json` :
+
+```sh
+stream-team -publish -m "mise en place"
+```
+
+La collection locale part telle quelle en v1, avec les overlays du dossier
+d'assets. L'équipe peut ensuite se contenter de lancer le programme.
+
 ## Vérifier une configuration
 
 ```sh
@@ -117,6 +130,11 @@ stream-team -check
 Synchronise puis s'arrête, sans ouvrir OBS. Utile pour valider une adresse de
 régie, voir ce qui est téléchargé et quelles sources restent à configurer, avant
 de confier l'outil à toute une équipe.
+
+Deux conseils sur l'adresse de lecture : la donner **avec sa barre oblique
+finale**, et sous sa forme définitive. Beaucoup d'hébergements redirigent le
+domaine nu vers `www.` — partir directement de l'adresse d'arrivée évite une
+redirection à chaque requête.
 
 ## Construire et tester
 

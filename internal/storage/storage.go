@@ -10,11 +10,17 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
 	"strings"
 )
+
+// ErrNotFound distingue « ce fichier n'existe pas encore » d'une panne ou d'une
+// adresse erronée. La différence compte à la première publication : une régie
+// vide est un état normal, pas une erreur.
+var ErrNotFound = errors.New("fichier absent de la régie")
 
 // Reader est présent sur tous les postes.
 type Reader interface {

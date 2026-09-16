@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 	"github.com/gilforge/stream-team/internal/config"
 	"github.com/gilforge/stream-team/internal/manifest"
 	"github.com/gilforge/stream-team/internal/obs"
+	"github.com/gilforge/stream-team/internal/storage"
 )
 
 // Receive applique l'état publié à cette machine. Appelé avant le lancement
@@ -21,6 +23,11 @@ func (e *Engine) Receive(ctx context.Context, progress func(string)) (*Report, e
 
 	progress("Lecture du manifeste…")
 	m, err := e.RemoteManifest(ctx)
+	if errors.Is(err, storage.ErrNotFound) {
+		return nil, fmt.Errorf(
+			"la régie %s ne contient encore aucun manifeste — "+
+				"le responsable de l'équipe doit publier une première fois", e.Cfg.ReadURL)
+	}
 	if err != nil {
 		return nil, err
 	}

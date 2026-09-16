@@ -32,6 +32,11 @@ type Engine struct {
 	Paths     *obs.Paths
 	Reader    storage.Reader
 	Overrides *config.Overrides
+
+	// Writer, quand il est fourni, remplace la connexion que Publish ouvrirait
+	// d'après publisher.json. Cela permet d'éprouver la publication sans
+	// serveur FTP sous la main.
+	Writer storage.Writer
 }
 
 // Report décrit ce qu'une opération a réellement fait, pour l'afficher dans le

@@ -56,6 +56,73 @@ type banc struct {
 	profileDir string
 	assetsDir  string
 	régieDir   string
+	url        string
+}
+
+// monterBancSurRégie ajoute un second poste sur la même régie : autre machine,
+// autre matériel, autre dossier d'overlays. C'est ce qui permet de vérifier
+// qu'une publication traverse correctement jusqu'à un équipier.
+func monterBancSurRégie(t *testing.T, premier *banc) *banc {
+	t.Helper()
+
+	obsRoot := t.TempDir()
+	scenesDir := filepath.Join(obsRoot, "basic", "scenes")
+	profileDir := filepath.Join(obsRoot, "basic", "profiles", "Equipe")
+	for _, d := range []string{scenesDir, profileDir} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	écrire(t, filepath.Join(profileDir, "basic.ini"), []byte(profilLocal))
+
+	reader, err := storage.NewHTTPReader(premier.url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assetsDir := filepath.Join(t.TempDir(), "MesOverlays")
+
+	return &banc{
+		scenesDir:  scenesDir,
+		profileDir: profileDir,
+		assetsDir:  assetsDir,
+		régieDir:   premier.régieDir,
+		url:        premier.url,
+		engine: &Engine{
+			Dir:   t.TempDir(),
+			Paths: &obs.Paths{Root: obsRoot, Scenes: scenesDir, Profiles: filepath.Join(obsRoot, "basic", "profiles")},
+			Cfg: &config.Config{
+				ReadURL:    premier.url,
+				AssetsDir:  assetsDir,
+				Collection: "Équipe",
+				Profile:    "Équipe",
+				DockPort:   47839,
+			},
+			Reader: reader,
+			Overrides: &config.Overrides{Sources: map[string]map[string]any{
+				"Webcam": {"video_device_id": "SA_WEBCAM_A_LUI"},
+			}},
+		},
+	}
+}
+
+// remplacerManifeste simule la publication d'un tiers pendant qu'on travaillait.
+func remplacerManifeste(t *testing.T, régieDir string, version int, auteur string) {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(régieDir, manifest.Name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := manifest.Parse(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.Version = version
+	m.Author = auteur
+	raw, err := m.Encode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	écrire(t, filepath.Join(régieDir, manifest.Name), raw)
 }
 
 func monterBanc(t *testing.T) *banc {
@@ -118,6 +185,7 @@ func monterBanc(t *testing.T) *banc {
 		profileDir: profileDir,
 		assetsDir:  assetsDir,
 		régieDir:   régieDir,
+		url:        srv.URL + "/",
 		engine: &Engine{
 			Dir:   t.TempDir(),
 			Paths: &obs.Paths{Root: obsRoot, Scenes: scenesDir, Profiles: filepath.Join(obsRoot, "basic", "profiles")},

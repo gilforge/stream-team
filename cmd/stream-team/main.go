@@ -35,7 +35,15 @@ func main() {
 // checkOnly sert à éprouver la configuration sans ouvrir OBS : utile pour
 // vérifier qu'une régie répond et que les scènes arrivent, avant de confier
 // l'outil à toute une équipe.
-var checkOnly = flag.Bool("check", false, "synchroniser puis s'arrêter, sans lancer OBS")
+var (
+	checkOnly = flag.Bool("check", false, "synchroniser puis s'arrêter, sans lancer OBS")
+
+	// publishNow sert surtout à amorcer une régie encore vide : il n'y a alors
+	// rien à recevoir, et attendre une session OBS complète pour déposer la
+	// première version n'aurait pas de sens.
+	publishNow = flag.Bool("publish", false, "publier l'état local puis s'arrêter, sans lancer OBS")
+	message    = flag.String("m", "", "message accompagnant la publication")
+)
 
 func run() error {
 	flag.Parse()
@@ -120,6 +128,22 @@ func run() error {
 			fmt.Println("  Canvas ajusté sur celui de l'équipe")
 		}
 		fmt.Println("\n  Vérification terminée, OBS n'a pas été lancé.")
+		return nil
+	}
+
+	if *publishNow {
+		if pub == nil {
+			return fmt.Errorf("ce poste est en lecture seule : aucun publisher.json n'accompagne l'exécutable")
+		}
+		rep, err := engine.Publish(ctx, *message, logStep)
+		if err != nil {
+			return err
+		}
+		if rep.UpToDate {
+			fmt.Println("\n  Rien à publier : la régie est déjà à jour.")
+		} else {
+			fmt.Printf("\n  Régie publiée en v%d (%d asset(s) envoyé(s)).\n", rep.Version, rep.AssetsFetched)
+		}
 		return nil
 	}
 

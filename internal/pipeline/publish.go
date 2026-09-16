@@ -3,6 +3,7 @@ package pipeline
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -61,10 +62,17 @@ func (e *Engine) Publish(ctx context.Context, message string, progress func(stri
 
 	progress("Vérification de la version en ligne…")
 	remote, err := e.RemoteManifest(ctx)
-	if err != nil {
+
+	// Une régie sans manifeste n'est pas en panne : elle n'a simplement jamais
+	// rien reçu. Cette publication l'amorce en v1.
+	amorçage := errors.Is(err, storage.ErrNotFound)
+	switch {
+	case amorçage:
+		progress("Régie vide : première publication")
+		remote = &manifest.Manifest{Version: 0}
+	case err != nil:
 		return nil, err
-	}
-	if remote.Version != e.Cfg.AppliedVersion {
+	case remote.Version != e.Cfg.AppliedVersion:
 		return nil, fmt.Errorf(
 			"la régie est en v%d publiée par %s, alors que vous êtes parti de la v%d — "+
 				"relancez pour recevoir avant de republier",
@@ -84,24 +92,29 @@ func (e *Engine) Publish(ctx context.Context, message string, progress func(stri
 		}
 	}
 
-	progress("Connexion au serveur…")
-	writer, base, err := storage.NewWriter(ctx, e.Pub.WriteURL, storage.Credentials{
-		Password:       e.Pub.Password,
-		KeyFile:        e.Pub.KeyFile,
-		KnownHostsFile: filepath.Join(e.Dir, "known-hosts.json"),
-	})
-	if err != nil {
-		return nil, err
+	writer, base := e.Writer, ""
+	if writer == nil {
+		progress("Connexion au serveur…")
+		writer, base, err = storage.NewWriter(ctx, e.Pub.WriteURL, storage.Credentials{
+			Password:       e.Pub.Password,
+			KeyFile:        e.Pub.KeyFile,
+			KnownHostsFile: filepath.Join(e.Dir, "known-hosts.json"),
+		})
+		if err != nil {
+			return nil, err
+		}
+		defer writer.Close()
 	}
-	defer writer.Close()
 
 	next := remote.Version + 1
 
-	progress("Archivage de la version précédente…")
-	if err := e.archive(ctx, writer, base, remote); err != nil {
-		// L'archivage est un filet de sécurité, pas une étape critique : mieux
-		// vaut publier sans que de refuser la publication.
-		progress("Archivage impossible (" + err.Error() + "), publication poursuivie")
+	if !amorçage {
+		progress("Archivage de la version précédente…")
+		if err := e.archive(ctx, writer, base, remote); err != nil {
+			// L'archivage est un filet de sécurité, pas une étape critique :
+			// mieux vaut publier que refuser la publication.
+			progress("Archivage impossible (" + err.Error() + "), publication poursuivie")
+		}
 	}
 
 	progress("Inventaire des assets…")
