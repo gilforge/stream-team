@@ -8,6 +8,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"flag"
 	"fmt"
 	"os"
 	"os/signal"
@@ -31,7 +32,14 @@ func main() {
 	}
 }
 
+// checkOnly sert à éprouver la configuration sans ouvrir OBS : utile pour
+// vérifier qu'une régie répond et que les scènes arrivent, avant de confier
+// l'outil à toute une équipe.
+var checkOnly = flag.Bool("check", false, "synchroniser puis s'arrêter, sans lancer OBS")
+
 func run() error {
+	flag.Parse()
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -100,6 +108,19 @@ func run() error {
 	}
 	for _, name := range report.Unconfigured {
 		fmt.Printf("  À configurer dans OBS : %s\n", name)
+	}
+
+	if *checkOnly {
+		fmt.Printf("\n  Régie v%d", report.Version)
+		if report.Author != "" {
+			fmt.Printf(" publiée par %s", report.Author)
+		}
+		fmt.Printf("\n  Assets : %d téléchargé(s), %d déjà à jour\n", report.AssetsFetched, report.AssetsSkipped)
+		if report.CanvasChanged {
+			fmt.Println("  Canvas ajusté sur celui de l'équipe")
+		}
+		fmt.Println("\n  Vérification terminée, OBS n'a pas été lancé.")
+		return nil
 	}
 
 	// 2. Le dock, servi en local pendant toute la session.

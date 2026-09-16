@@ -46,7 +46,7 @@ func (e *Engine) Publish(ctx context.Context, message string, progress func(stri
 	// Ce qui part sur le serveur ne contient ni chemin absolu ni identifiant
 	// d'appareil : ce sont les deux choses qui ne valent que sur cette machine.
 	obs.Tokenize(c, e.Cfg.AssetsDir)
-	stripLocal(c)
+	obs.StripLocal(c)
 	payload, err := c.Normalize()
 	if err != nil {
 		return nil, err

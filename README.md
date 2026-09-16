@@ -108,14 +108,34 @@ d'une collection de scènes ne se fusionnent pas : le dernier qui publie a
 raison. Une publication partie d'une version périmée est refusée, et la
 divergence locale est signalée dans le dock — mais il n'y a ni verrou ni fusion.
 
-## Construire
+## Vérifier une configuration
 
 ```sh
-go mod tidy
-go build ./cmd/stream-team
+stream-team -check
 ```
 
-Construit et vérifié avec Go 1.27 sous Windows. `go vet` est propre.
+Synchronise puis s'arrête, sans ouvrir OBS. Utile pour valider une adresse de
+régie, voir ce qui est téléchargé et quelles sources restent à configurer, avant
+de confier l'outil à toute une équipe.
+
+## Construire et tester
+
+```sh
+go build ./cmd/stream-team
+go test ./...
+```
+
+Construit et vérifié avec Go 1.27 sous Windows ; `go vet` est propre.
+
+Les tests couvrent le relevé et la réinjection des périphériques, la
+tokenisation des chemins, la stabilité de la normalisation JSON, la réécriture
+ciblée du `basic.ini`, et une réception de bout en bout contre une régie servie
+en HTTP statique.
+
+`internal/obs/real_test.go` confronte en plus le code aux collections réellement
+présentes sur la machine — en lecture seule, et sauté s'il n'y a pas d'OBS
+installé. C'est ce test qui a révélé le traitement fautif de `device_id:
+"default"`.
 
 ## À faire
 

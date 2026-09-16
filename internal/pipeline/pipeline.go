@@ -90,7 +90,7 @@ func (e *Engine) LocalHash() (string, error) {
 	// jeton d'assets en place et réglages matériels neutralisés. Sans quoi le
 	// simple fait d'avoir sa propre webcam passerait pour une modification.
 	obs.Tokenize(c, e.Cfg.AssetsDir)
-	stripLocal(c)
+	obs.StripLocal(c)
 	data, err := c.Normalize()
 	if err != nil {
 		return "", err
@@ -109,23 +109,6 @@ func (e *Engine) HasLocalChanges() (bool, error) {
 		return false, err
 	}
 	return current != e.Cfg.AppliedHash, nil
-}
-
-// stripLocal remet à zéro les réglages propres à la machine, pour que deux
-// postes produisent la même empreinte à partir des mêmes scènes.
-func stripLocal(c *obs.Collection) {
-	for _, s := range c.Sources() {
-		if !obs.IsHardware(s.Type()) {
-			continue
-		}
-		settings := s.Settings()
-		if settings == nil {
-			continue
-		}
-		for _, key := range obs.LocalKeysFor(s.Type()) {
-			delete(settings, key)
-		}
-	}
 }
 
 func fileSHA(path string) (string, int64, error) {

@@ -90,20 +90,31 @@ func Apply(c *Collection, overrides map[string]map[string]any) (unconfigured []s
 		if !ok {
 			continue
 		}
-		mine, known := overrides[s.Name()]
-		if !known || len(mine) == 0 {
-			unconfigured = append(unconfigured, s.Name())
-			continue
-		}
+		// mine peut être nil : la lecture d'une map nil rend simplement une
+		// valeur absente, ce qui donne le bon comportement plus bas.
+		mine := overrides[s.Name()]
 		settings := s.EnsureSettings()
+
+		renseignée := false
 		for _, k := range keys {
 			if v, present := mine[k]; present {
 				settings[k] = v
-			} else {
-				// La valeur du publieur désignerait son matériel : mieux vaut
-				// la retirer et laisser OBS reprendre son défaut.
-				delete(settings, k)
+				renseignée = true
+				continue
 			}
+			if isPortable(settings[k]) {
+				renseignée = true
+				continue
+			}
+			// Toute autre valeur désigne l'appareil de quelqu'un d'autre. La
+			// retirer laisse OBS afficher une source visiblement non
+			// configurée, qui se règle en un clic — alors qu'un identifiant
+			// étranger donne un écran noir en laissant croire que le
+			// périphérique est le bon.
+			delete(settings, k)
+		}
+		if !renseignée {
+			unconfigured = append(unconfigured, s.Name())
 		}
 	}
 	sort.Strings(unconfigured)
@@ -123,11 +134,46 @@ func Merge(existing, fresh map[string]map[string]any) map[string]map[string]any 
 	return existing
 }
 
+// StripLocal retire d'une collection tout ce qui ne vaut que sur cette machine,
+// avant publication.
+//
+// Symétrique d'Apply : les deux doivent traiter les mêmes clés de la même
+// façon, sans quoi une publication suivie d'une réception ne rendrait pas la
+// collection de départ.
+func StripLocal(c *Collection) {
+	for _, s := range c.Sources() {
+		settings := s.Settings()
+		if settings == nil {
+			continue
+		}
+		for _, k := range LocalKeysFor(s.Type()) {
+			if isPortable(settings[k]) {
+				continue
+			}
+			delete(settings, k)
+		}
+	}
+}
+
+// isPortable reconnaît les valeurs qui désignent un appareil sans nommer de
+// matériel : « default » vise le périphérique par défaut du système et
+// fonctionne à l'identique sur toutes les machines.
+//
+// Une telle valeur traverse le serveur telle quelle. La traiter comme un
+// identifiant matériel reviendrait à l'effacer et à réclamer une configuration
+// pour une source qui marchait partout.
+func isPortable(v any) bool {
+	s, ok := v.(string)
+	return ok && s == "default"
+}
+
 func isEmpty(v any) bool {
 	switch t := v.(type) {
 	case nil:
 		return true
 	case string:
+		// « default » n'est pas un identifiant à mémoriser : il est déjà
+		// portable et reste dans la collection partagée.
 		return t == "" || t == "default"
 	}
 	return false
