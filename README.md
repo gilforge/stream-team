@@ -164,3 +164,23 @@ installé. C'est ce test qui a révélé le traitement fautif de `device_id:
 - Retour à une version antérieure depuis le dock (`versions/` est déjà rempli).
 - Localisation de l'exécutable d'OBS par la base de registre, en complément des
   emplacements usuels.
+
+## Hébergements mutualisés : deux pièges du FTPS
+
+Éprouvé contre un hébergement o2switch, les deux se retrouvent ailleurs.
+
+**Le certificat est celui du serveur, pas du domaine.** `ftps://…@ftp.mondomaine.fr`
+échoue parce que le certificat couvre `araucaria.o2switch.net`. Mettre ce
+nom-là dans `write_url` règle le problème, sans rien désactiver :
+
+```
+ftps://identifiant@araucaria.o2switch.net/public_html/CKZ/twitch
+```
+
+**Le canal de données doit reprendre la session TLS du canal de contrôle.**
+Sans cela le serveur avorte chaque transfert par un `451 Transfer aborted`
+après quelques octets. Le client s'en charge (cache de sessions TLS, TLS 1.2) ;
+c'est documenté ici parce que le symptôme est déroutant.
+
+Enfin, ces hébergements limitent le débit de requêtes : un `429` est repris
+automatiquement, jusqu'à trois tentatives, en respectant `Retry-After`.

@@ -103,6 +103,31 @@ func run() error {
 		Overrides: overrides,
 	}
 
+	// Publier n'a pas besoin de recevoir d'abord : on part de ce qu'on a sur
+	// le disque. Éviter cette réception inutile épargne au serveur une rafale
+	// de requêtes, ce qui compte sur un hébergement mutualisé qui limite le
+	// débit.
+	if *publishNow {
+		if pub == nil {
+			return fmt.Errorf("ce poste est en lecture seule : aucun publisher.json n'accompagne l'exécutable")
+		}
+		rep, err := engine.Publish(ctx, *message, logStep)
+		if err != nil {
+			return err
+		}
+		if rep.UpToDate {
+			fmt.Println("\n  Rien à publier : la régie est déjà à jour.")
+		} else {
+			fmt.Printf("\n  Régie publiée en v%d (%d asset(s) envoyé(s)).\n", rep.Version, rep.AssetsFetched)
+		}
+		if n := len(rep.ForeignPaths); n > 0 {
+			fmt.Printf("\n  %d fichier(s) référencé(s) hors du dossier d'assets : ils ne\n", n)
+			fmt.Println("  seront trouvables chez personne. Déplacez-les dans le dossier")
+			fmt.Println("  d'assets, repointez les sources dans OBS, et republiez.")
+		}
+		return nil
+	}
+
 	// 1. Réception, OBS étant encore fermé : c'est la seule fenêtre où écrire
 	//    dans ses fichiers a un effet.
 	//
@@ -129,22 +154,6 @@ func run() error {
 			fmt.Println("  Canvas ajusté sur celui de l'équipe")
 		}
 		fmt.Println("\n  Vérification terminée, OBS n'a pas été lancé.")
-		return nil
-	}
-
-	if *publishNow {
-		if pub == nil {
-			return fmt.Errorf("ce poste est en lecture seule : aucun publisher.json n'accompagne l'exécutable")
-		}
-		rep, err := engine.Publish(ctx, *message, logStep)
-		if err != nil {
-			return err
-		}
-		if rep.UpToDate {
-			fmt.Println("\n  Rien à publier : la régie est déjà à jour.")
-		} else {
-			fmt.Printf("\n  Régie publiée en v%d (%d asset(s) envoyé(s)).\n", rep.Version, rep.AssetsFetched)
-		}
 		return nil
 	}
 

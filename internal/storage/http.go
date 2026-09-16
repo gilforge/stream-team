@@ -88,7 +88,64 @@ func (r *HTTPReader) Download(ctx context.Context, p, destPath string) error {
 	return os.Rename(tmp, destPath)
 }
 
+// tentatives et attenteBase pilotent la reprise sur limitation de débit. Les
+// hébergements mutualisés protègent leurs serveurs contre les rafales de
+// requêtes, et un agent qui synchronise plusieurs fichiers d'affilée peut
+// franchir le seuil sans rien faire d'anormal.
+const (
+	tentatives  = 3
+	attenteBase = 2 * time.Second
+)
+
 func (r *HTTPReader) do(ctx context.Context, p string, noCache bool) (*http.Response, error) {
+	var dernière error
+	for essai := 0; essai < tentatives; essai++ {
+		resp, err := r.tenter(ctx, p, noCache)
+		if err == nil {
+			return resp, nil
+		}
+		dernière = err
+
+		attente, limité := délaiAvantReprise(err, essai)
+		if !limité {
+			return nil, err
+		}
+		select {
+		case <-time.After(attente):
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+	return nil, dernière
+}
+
+// erreurLimitée signale que le serveur a refusé temporairement, en disant
+// éventuellement combien de temps attendre.
+type erreurLimitée struct {
+	statut  string
+	chemin  string
+	attente time.Duration
+}
+
+func (e *erreurLimitée) Error() string {
+	if e.attente > 0 {
+		return fmt.Sprintf("la régie limite les requêtes (%s) — réessayez dans %s", e.statut, e.attente)
+	}
+	return fmt.Sprintf("la régie limite les requêtes (%s) pour %s — patientez une minute puis réessayez", e.statut, e.chemin)
+}
+
+func délaiAvantReprise(err error, essai int) (time.Duration, bool) {
+	var limité *erreurLimitée
+	if !errors.As(err, &limité) {
+		return 0, false
+	}
+	if limité.attente > 0 {
+		return limité.attente, true
+	}
+	return attenteBase << essai, true // 2 s, puis 4 s
+}
+
+func (r *HTTPReader) tenter(ctx context.Context, p string, noCache bool) (*http.Response, error) {
 	ref := &url.URL{Path: strings.TrimPrefix(path.Clean(p), "/")}
 	full := r.base.ResolveReference(ref)
 
@@ -112,13 +169,34 @@ func (r *HTTPReader) do(ctx context.Context, p string, noCache bool) (*http.Resp
 		return nil, fmt.Errorf("téléchargement de %s impossible : %w", p, err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
-		if resp.StatusCode == http.StatusNotFound {
+		defer resp.Body.Close()
+		switch resp.StatusCode {
+		case http.StatusNotFound:
 			return nil, fmt.Errorf("%s est introuvable sur la régie : %w", p, ErrNotFound)
+		case http.StatusTooManyRequests, http.StatusServiceUnavailable:
+			return nil, &erreurLimitée{
+				statut:  resp.Status,
+				chemin:  p,
+				attente: retryAfter(resp.Header.Get("Retry-After")),
+			}
 		}
 		return nil, fmt.Errorf("la régie répond %s pour %s", resp.Status, p)
 	}
 	return resp, nil
+}
+
+// retryAfter lit l'en-tête du même nom, quand le serveur prend la peine de dire
+// combien de temps patienter. On plafonne : au-delà d'une minute, mieux vaut
+// rendre la main que faire attendre quelqu'un devant un écran.
+func retryAfter(v string) time.Duration {
+	secondes, err := strconv.Atoi(strings.TrimSpace(v))
+	if err != nil || secondes <= 0 {
+		return 0
+	}
+	if secondes > 60 {
+		return 0
+	}
+	return time.Duration(secondes) * time.Second
 }
 
 // ProbeResult décrit ce qu'on a pu apprendre d'une adresse. Une régie vide est

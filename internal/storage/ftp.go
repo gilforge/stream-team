@@ -32,10 +32,28 @@ func newFTP(ctx context.Context, addr, user, password string, mode tlsMode) (Wri
 		if i := strings.LastIndex(addr, ":"); i > 0 {
 			host = addr[:i]
 		}
-		// Vérification du certificat laissée active : un hébergement qui
-		// propose FTPS a un certificat valide, et le désactiver retirerait
-		// tout l'intérêt du chiffrement.
-		opts = append(opts, ftp.DialWithExplicitTLS(&tls.Config{ServerName: host}))
+		opts = append(opts, ftp.DialWithExplicitTLS(&tls.Config{
+			// Vérification du certificat laissée active : la désactiver
+			// retirerait tout l'intérêt du chiffrement. Les hébergements
+			// mutualisés présentent souvent le certificat du serveur physique
+			// plutôt que celui du domaine — c'est ce nom-là qu'il faut donner
+			// dans l'adresse d'écriture.
+			ServerName: host,
+
+			// La plupart des serveurs FTPS refusent un canal de données dont la
+			// session TLS ne reprend pas celle du canal de contrôle : c'est ce
+			// qui les protège du détournement de connexion de données. Sans ce
+			// cache, la reprise est impossible et chaque transfert est avorté
+			// par un « 451 Transfer aborted », après quelques octets.
+			ClientSessionCache: tls.NewLRUClientSessionCache(32),
+
+			// TLS 1.3 renégocie les sessions par tickets, d'une façon que ces
+			// serveurs ne reconnaissent pas comme une reprise. S'en tenir à
+			// TLS 1.2 est ce que font les clients FTP éprouvés, et reste
+			// parfaitement sûr.
+			MinVersion: tls.VersionTLS12,
+			MaxVersion: tls.VersionTLS12,
+		}))
 	}
 
 	conn, err := ftp.Dial(addr, opts...)
