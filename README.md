@@ -145,6 +145,10 @@ go test ./...
 
 Construit et vérifié avec Go 1.27 sous Windows ; `go vet` est propre.
 
+Les dépendances sont **vendorisées** dans `vendor/` : le dépôt se compile hors
+ligne, sans rien télécharger et sans dépendre d'un cache de modules ailleurs sur
+la machine. Seul le compilateur Go est requis.
+
 Les tests couvrent le relevé et la réinjection des périphériques, la
 tokenisation des chemins, la stabilité de la normalisation JSON, la réécriture
 ciblée du `basic.ini`, et une réception de bout en bout contre une régie servie
