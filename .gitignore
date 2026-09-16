@@ -1,0 +1,16 @@
+# binaires
+/stream-team
+/stream-team.exe
+*.exe
+
+# fichiers d'exécution de l'agent, propres à une machine
+/config.json
+/publisher.json
+/local-overrides.json
+/known-hosts.json
+/backups/
+
+# divers
+*.tmp
+*.part
+.DS_Store

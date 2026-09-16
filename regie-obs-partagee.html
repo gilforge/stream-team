@@ -1,0 +1,624 @@
+<title>Régie OBS Partagée</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+
+<style>
+  :root {
+    --bg:        #F1F3F5;
+    --surface:   #FFFFFF;
+    --surface-2: #F7F8FA;
+    --ink:       #12161D;
+    --ink-2:     #59636F;
+    --ink-3:     #8A939E;
+    --line:      #DCE0E6;
+    --line-2:    #C6CCD4;
+    --tally:     #C31E33;
+    --tally-bg:  #FCEEF0;
+    --ok:        #196F52;
+    --ok-bg:     #E7F3ED;
+    --warn:      #8F5A00;
+    --warn-bg:   #FBF1DE;
+    --radius:    6px;
+
+    --f-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    --f-body:    "IBM Plex Sans", -apple-system, "Segoe UI", Roboto, sans-serif;
+    --f-mono:    "IBM Plex Mono", "Consolas", "SF Mono", monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:        #0E1116;
+      --surface:   #161A21;
+      --surface-2: #1B2029;
+      --ink:       #E7EAEE;
+      --ink-2:     #99A3AF;
+      --ink-3:     #6D7784;
+      --line:      #262C36;
+      --line-2:    #39414D;
+      --tally:     #FF6275;
+      --tally-bg:  #2C1319;
+      --ok:        #4EBE91;
+      --ok-bg:     #11291F;
+      --warn:      #DDA23A;
+      --warn-bg:   #2A2010;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:        #0E1116;
+    --surface:   #161A21;
+    --surface-2: #1B2029;
+    --ink:       #E7EAEE;
+    --ink-2:     #99A3AF;
+    --ink-3:     #6D7784;
+    --line:      #262C36;
+    --line-2:    #39414D;
+    --tally:     #FF6275;
+    --tally-bg:  #2C1319;
+    --ok:        #4EBE91;
+    --ok-bg:     #11291F;
+    --warn:      #DDA23A;
+    --warn-bg:   #2A2010;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--f-body);
+    font-size: 16px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 780px;
+    margin: 0 auto;
+    padding-inline: 20px;
+    padding-block: 0 72px;
+  }
+
+  /* ---- en-tête ---- */
+  .masthead { padding-block: 44px 34px; border-bottom: 2px solid var(--ink); }
+  .eyebrow {
+    font-family: var(--f-mono);
+    font-size: 11px; font-weight: 500;
+    letter-spacing: .14em; text-transform: uppercase;
+    color: var(--ink-2);
+    display: flex; align-items: center; gap: 9px;
+    margin-bottom: 18px;
+  }
+  .tally-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--tally);
+    box-shadow: 0 0 0 3px var(--tally-bg);
+    flex: none;
+  }
+  h1 {
+    font-family: var(--f-display); font-weight: 700;
+    font-size: clamp(34px, 7vw, 50px);
+    line-height: 1.04; letter-spacing: -.022em;
+    margin: 0 0 16px; text-wrap: balance;
+  }
+  .standfirst {
+    font-size: 18px; color: var(--ink-2);
+    margin: 0; max-width: 60ch;
+  }
+  .meta {
+    display: flex; flex-wrap: wrap; gap: 8px 22px;
+    margin-top: 26px;
+    font-family: var(--f-mono); font-size: 12px; color: var(--ink-3);
+  }
+  .meta b { color: var(--ink-2); font-weight: 500; }
+
+  /* ---- sections ---- */
+  section { padding-block: 40px 4px; }
+  section + section { border-top: 1px solid var(--line); }
+  h2 {
+    font-family: var(--f-display); font-weight: 600;
+    font-size: 25px; letter-spacing: -.012em;
+    margin: 0 0 6px; text-wrap: balance;
+  }
+  .sub { color: var(--ink-2); margin: 0 0 26px; max-width: 62ch; }
+  h3 {
+    font-family: var(--f-display); font-weight: 600;
+    font-size: 16px; letter-spacing: .002em;
+    margin: 30px 0 8px;
+  }
+  p { margin: 0 0 14px; max-width: 66ch; }
+  a { color: var(--tally); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  strong { font-weight: 600; }
+  em { font-style: italic; }
+
+  code {
+    font-family: var(--f-mono); font-size: .855em;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: .1em .36em;
+    word-break: break-word;
+  }
+
+  /* ---- séquence : le cycle de vie ---- */
+  .seq { list-style: none; padding: 0; margin: 0; display: grid; gap: 0; }
+  .seq li {
+    display: grid;
+    grid-template-columns: 40px 1fr;
+    gap: 0 18px;
+    padding-bottom: 26px;
+    position: relative;
+  }
+  .seq li::before {
+    content: "";
+    position: absolute; left: 19px; top: 30px; bottom: 0;
+    width: 2px; background: var(--line);
+  }
+  .seq li:last-child { padding-bottom: 0; }
+  .seq li:last-child::before { display: none; }
+  .step-n {
+    font-family: var(--f-mono); font-size: 12px; font-weight: 600;
+    width: 40px; height: 40px; border-radius: 50%;
+    display: grid; place-items: center;
+    background: var(--surface); color: var(--ink);
+    border: 2px solid var(--ink);
+    position: relative; z-index: 1;
+  }
+  .seq li.is-key .step-n { background: var(--tally); border-color: var(--tally); color: #fff; }
+  .step-body { padding-top: 7px; }
+  .step-title { font-weight: 600; margin: 0 0 3px; }
+  .step-body p { margin: 0; color: var(--ink-2); font-size: 15px; }
+  .step-note {
+    margin-top: 9px !important;
+    font-family: var(--f-mono); font-size: 12.5px;
+    color: var(--ink-3) !important;
+    border-left: 2px solid var(--line-2); padding-left: 11px;
+  }
+
+  /* ---- schéma ---- */
+  .diagram { display: grid; gap: 12px; margin: 4px 0 8px; }
+  .node {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 16px 18px;
+  }
+  .node-head {
+    font-family: var(--f-mono); font-size: 11px; font-weight: 600;
+    letter-spacing: .1em; text-transform: uppercase;
+    color: var(--ink-2); margin-bottom: 12px;
+  }
+  .tree {
+    font-family: var(--f-mono); font-size: 13px; line-height: 1.85;
+    margin: 0; white-space: pre; overflow-x: auto; color: var(--ink);
+  }
+  .tree .c { color: var(--ink-3); }
+  .flows { display: grid; gap: 5px; padding: 2px 0; }
+  .flow {
+    font-family: var(--f-mono); font-size: 12px;
+    display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap;
+    justify-content: center; text-align: center;
+  }
+  .flow-down { color: var(--ok); }
+  .flow-up   { color: var(--tally); }
+  .flow span.who { color: var(--ink-3); }
+
+  /* ---- tableau ---- */
+  .table-scroll { overflow-x: auto; margin: 0 0 8px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14.5px; min-width: 460px; }
+  th, td { text-align: left; padding: 11px 14px 11px 0; vertical-align: top; border-bottom: 1px solid var(--line); }
+  th {
+    font-family: var(--f-mono); font-size: 11px; font-weight: 600;
+    letter-spacing: .09em; text-transform: uppercase; color: var(--ink-2);
+    border-bottom: 1px solid var(--line-2); padding-top: 0;
+  }
+  td:first-child { font-family: var(--f-mono); font-size: 13px; }
+  tr:last-child td { border-bottom: none; }
+
+  .pill {
+    display: inline-block; white-space: nowrap;
+    font-family: var(--f-mono); font-size: 11px; font-weight: 600;
+    letter-spacing: .05em; text-transform: uppercase;
+    padding: 2px 8px; border-radius: 3px;
+  }
+  .pill-sync  { background: var(--ok-bg);    color: var(--ok); }
+  .pill-local { background: var(--tally-bg); color: var(--tally); }
+  .pill-once  { background: var(--warn-bg);  color: var(--warn); }
+
+  /* ---- encadrés ---- */
+  .callout {
+    background: var(--surface); border: 1px solid var(--line);
+    border-left: 3px solid var(--tally);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    padding: 18px 20px; margin: 22px 0;
+  }
+  .callout.is-ok { border-left-color: var(--ok); }
+  .callout-label {
+    font-family: var(--f-mono); font-size: 11px; font-weight: 600;
+    letter-spacing: .1em; text-transform: uppercase;
+    color: var(--tally); margin-bottom: 7px;
+  }
+  .callout.is-ok .callout-label { color: var(--ok); }
+  .callout p:last-child { margin-bottom: 0; }
+
+  /* ---- décisions ---- */
+  .decisions { display: grid; gap: 0; }
+  .decision { padding: 20px 0; border-bottom: 1px solid var(--line); }
+  .decision:last-child { border-bottom: none; }
+  .decision:first-child { padding-top: 4px; }
+  .decision h3 { margin: 0 0 6px; }
+  .decision p { margin: 0 0 10px; font-size: 15px; color: var(--ink-2); }
+  .decision p:last-child { margin-bottom: 0; }
+  .because {
+    font-size: 14px !important;
+    border-left: 2px solid var(--line-2); padding-left: 12px;
+  }
+  .because b {
+    font-family: var(--f-mono); font-size: 11px; font-weight: 600;
+    letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3);
+    display: block; margin-bottom: 2px;
+  }
+
+  /* ---- liste simple ---- */
+  ul.plain, ol.plain { margin: 0 0 14px; padding-left: 21px; }
+  ul.plain li, ol.plain li { margin-bottom: 7px; max-width: 64ch; }
+  ul.plain li::marker, ol.plain li::marker { color: var(--ink-3); }
+
+  /* ---- points ouverts ---- */
+  .open-item { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start; padding: 13px 0; border-bottom: 1px solid var(--line); }
+  .open-item:last-child { border-bottom: none; }
+  .open-mark { font-family: var(--f-mono); font-size: 13px; color: var(--ink-3); padding-top: 1px; }
+  .open-item p { margin: 0; font-size: 15px; }
+
+  footer {
+    margin-top: 48px; padding-top: 22px;
+    border-top: 2px solid var(--ink);
+    font-family: var(--f-mono); font-size: 12px; color: var(--ink-3);
+    display: flex; flex-wrap: wrap; gap: 6px 20px; justify-content: space-between;
+  }
+
+  @media (max-width: 480px) {
+    body { font-size: 15.5px; }
+    .seq li { grid-template-columns: 32px 1fr; gap: 0 14px; }
+    .step-n { width: 32px; height: 32px; font-size: 11px; }
+    .seq li::before { left: 15px; top: 24px; }
+    .step-body { padding-top: 3px; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow"><span class="tally-dot"></span>Note de conception &middot; v3</div>
+    <h1>Régie OBS Partagée</h1>
+    <p class="standfirst">Un outil libre qui met à jour les scènes OBS de toute une équipe avant d'ouvrir le logiciel, et publie les modifications en le refermant. Un binaire à télécharger, une adresse à saisir, et aucun serveur à administrer.</p>
+    <div class="meta">
+      <span><b>Public</b> équipes de streamers</span>
+      <span><b>Distribution</b> GitHub Releases</span>
+      <span><b>Hébergement</b> HTTP en lecture, FTP en écriture</span>
+      <span><b>Premier terrain</b> notre équipe Twitch</span>
+    </div>
+  </header>
+
+  <section>
+    <h2>Le cycle de vie</h2>
+    <p class="sub">Toute l'architecture découle d'une contrainte : OBS charge ses scènes en mémoire au démarrage et ne réécrit ses fichiers qu'à la fermeture. On ne travaille donc que dans les deux fenêtres où le disque fait foi — avant le lancement, après la fermeture.</p>
+
+    <ol class="seq">
+      <li class="is-key">
+        <div class="step-n">01</div>
+        <div class="step-body">
+          <p class="step-title">Le membre lance « Stream Équipe »</p>
+          <p>Un raccourci sur le bureau, qui remplace celui d'OBS. C'est le seul changement d'habitude demandé.</p>
+        </div>
+      </li>
+      <li>
+        <div class="step-n">02</div>
+        <div class="step-body">
+          <p class="step-title">L'agent synchronise, OBS étant encore fermé</p>
+          <p>Il lit le manifeste du serveur, ne télécharge que ce qui a changé, réécrit les chemins d'assets et réinjecte les périphériques de cette machine. Deux à trois secondes, avec une fenêtre de progression.</p>
+          <p class="step-note">Aucun fichier verrouillé, aucun rechargement à chaud, aucun écran noir.</p>
+        </div>
+      </li>
+      <li>
+        <div class="step-n">03</div>
+        <div class="step-body">
+          <p class="step-title">OBS s'ouvre, déjà à jour</p>
+          <p>Scènes de l'équipe et canvas commun en place. Le membre n'a rien à cliquer : il peut lancer son stream.</p>
+        </div>
+      </li>
+      <li>
+        <div class="step-n">04</div>
+        <div class="step-body">
+          <p class="step-title">Le dock affiche l'état de la régie</p>
+          <p>Version en cours, qui l'a publiée et quand, les réglages du serveur, et un bouton « Publier mes modifications en quittant » pour qui a le droit d'écrire.</p>
+          <p class="step-note">Dock de navigateur personnalisé pointant sur 127.0.0.1 — l'agent sert lui-même la page. Aucun plugin OBS.</p>
+        </div>
+      </li>
+      <li class="is-key">
+        <div class="step-n">05</div>
+        <div class="step-body">
+          <p class="step-title">OBS se ferme, l'agent publie puis s'arrête</p>
+          <p>OBS vient d'écrire ses fichiers : c'est le moment idéal pour les lire. L'agent publie si on le lui a demandé, met à jour la mémoire des périphériques locaux, et se termine.</p>
+        </div>
+      </li>
+    </ol>
+
+    <div class="callout is-ok">
+      <div class="callout-label">Ce que ce découpage supprime</div>
+      <p>Pas de rechargement de collection à chaud, donc pas de bascule vers une collection tampon ni d'écran noir en pleine session. Pas de fichier périmé au moment de publier. Et <strong>obs-websocket n'est plus nécessaire</strong> : il ne sert plus qu'aux extensions envisagées plus bas.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Installation et configuration</h2>
+    <p class="sub">L'outil étant public, rien ne peut être figé à la compilation : chaque équipe a son hébergement. L'adresse est donc une donnée saisie, jamais une constante.</p>
+
+    <h3>Le premier lancement</h3>
+    <ol class="plain">
+      <li>Télécharger <code>stream-team.exe</code> depuis les Releases du dépôt. Personne ne compile quoi que ce soit : GitHub Actions produit le binaire à chaque version.</li>
+      <li>Le poser dans un dossier, le lancer. Aucune configuration trouvée : l'agent ouvre sa propre fenêtre — adresse HTTP de la régie, dossier d'assets — teste la connexion et enregistre.</li>
+      <li>Il inscrit son dock dans la configuration d'OBS, crée le raccourci, puis lance OBS.</li>
+    </ol>
+
+    <h3>Ensuite</h3>
+    <p>Les lancements suivants ne posent plus aucune question : configuration connue, synchronisation à froid, OBS s'ouvre à jour. Le dock permet à tout moment de changer d'adresse, sans éditer le moindre fichier.</p>
+
+    <div class="callout">
+      <div class="callout-label">Empreinte sur la machine</div>
+      <p>Un dossier, un raccourci, une ligne ajoutée à la configuration d'OBS (sauvegardée avant modification). Rien dans le registre, rien au démarrage de Windows, aucun service, aucun installeur. L'agent ne vit que le temps d'une session OBS. Pour désinstaller : supprimer le dossier et le raccourci.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Architecture</h2>
+    <p class="sub">Un hébergement web ordinaire, et un binaire unique sur chaque poste. Rien à administrer.</p>
+
+    <div class="diagram">
+      <div class="node">
+        <div class="node-head">Hébergement — un dossier servi en HTTP, déposé en FTP</div>
+<pre class="tree">manifest.json      <span class="c">version, auteur, date, SHA-256 par fichier</span>
+scenes/TEAM.json   <span class="c">la collection, chemins tokenisés en $ASSETS$</span>
+assets/            <span class="c">overlays, alertes, polices</span>
+versions/          <span class="c">les 10 collections précédentes</span></pre>
+      </div>
+
+      <div class="flows">
+        <div class="flow flow-down">↓ HTTP GET<span class="who">lecture — tous les membres, aucun identifiant</span></div>
+        <div class="flow flow-up">↑ FTP<span class="who">écriture — le publieur seul</span></div>
+      </div>
+
+      <div class="node">
+        <div class="node-head">Poste streamer — un dossier au choix</div>
+<pre class="tree">stream-team.exe       <span class="c">~10 Mo, Go, binaire statique</span>
+config.json           <span class="c">écrit par l'agent : adresse, dossier d'assets</span>
+publisher.json        <span class="c">optionnel — les identifiants FTP</span>
+local-overrides.json  <span class="c">les périphériques de CETTE machine</span>
+backups/              <span class="c">les dernières collections locales</span></pre>
+      </div>
+    </div>
+
+    <h3>Lecture et écriture ne sont pas le même problème</h3>
+    <p>Elles ne concernent pas les mêmes personnes, donc elles n'ont aucune raison d'utiliser le même protocole. C'est cette dissymétrie qui permet à l'outil de se passer d'administration système.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th></th><th>Qui</th><th>Protocole</th><th>Ce qu'il faut savoir faire</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Lecture</td>
+            <td>toute l'équipe</td>
+            <td>GET HTTP, rien d'autre</td>
+            <td>coller une adresse</td>
+          </tr>
+          <tr>
+            <td>Écriture</td>
+            <td>une personne</td>
+            <td>FTP ou SFTP</td>
+            <td>avoir un hébergement web et ses identifiants</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>Dans le code, l'interface de stockage se scinde en un <code>Reader</code> HTTP, toujours présent, et un <code>Writer</code> FTP que seul le publieur configure. La majorité de l'équipe n'embarque jamais que le premier.</p>
+    <p><strong>Le binaire reste identique pour tout le monde.</strong> Ce qui distingue un publieur, c'est la présence d'un <code>publisher.json</code> à côté de l'exe. Sans ce fichier, le dock est en lecture seule et les boutons de publication n'existent pas — impossible de publier par accident.</p>
+
+    <h3>La publication tient dans son ordre d'écriture</h3>
+    <p>Sans WebDAV, pas de <code>If-Match</code> ni de copie côté serveur. La cohérence vient de la séquence : <strong>archiver, puis déposer les assets, puis le manifeste en dernier</strong>.</p>
+    <p>Tant que le manifeste n'a pas changé, les autres postes continuent de voir l'ancienne version — même si les nouveaux fichiers sont déjà en ligne. Un membre qui synchronise pendant une publication obtient donc toujours un état cohérent. C'est une publication atomique sans transaction, et elle suffit tant qu'une seule personne publie.</p>
+
+    <div class="callout">
+      <div class="callout-label">Les deux pièges du HTTP statique</div>
+      <p><strong>Le cache.</strong> Un serveur, un intermédiaire ou le client peut servir un manifeste périmé, et le membre croit être à jour sans l'être. Le manifeste se demande donc avec un paramètre anti-cache et un en-tête <code>Cache-Control: no-cache</code>. Les assets, eux, peuvent être mis en cache agressivement : ils sont vérifiés par leur empreinte.</p>
+      <p><strong>Pas de listing de dossier.</strong> On ne peut pas énumérer un dossier de façon fiable en HTTP. Le manifeste doit être exhaustif — ce qu'il est déjà. C'est aussi ce qui rend l'outil indépendant des particularités de chaque hébergeur.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Ce qui est partagé, ce qui reste local</h2>
+    <p class="sub">La ligne de partage vient du matériel hétérogène des équipes. Un réglage qui dépend de la machine ne traverse jamais le serveur.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Élément</th><th>Statut</th><th>Raison</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>scenes/TEAM.json</td>
+            <td><span class="pill pill-sync">Partagé</span></td>
+            <td>Le cœur : scènes, sources, filtres, transitions, mixage.</td>
+          </tr>
+          <tr>
+            <td>assets/</td>
+            <td><span class="pill pill-sync">Partagé</span></td>
+            <td>Différentiel par hash — on ne retélécharge pas 800 Mo pour un PNG modifié.</td>
+          </tr>
+          <tr>
+            <td>Canvas + FPS</td>
+            <td><span class="pill pill-sync">Partagé</span></td>
+            <td><strong>Critique.</strong> Si les résolutions de canvas diffèrent, toutes les positions de sources sont décalées.</td>
+          </tr>
+          <tr>
+            <td>Clé de flux</td>
+            <td><span class="pill pill-once">Hors périmètre</span></td>
+            <td>Saisie une fois dans OBS à l'installation. Le profil n'étant jamais remplacé, elle n'a aucune raison de transiter par le serveur.</td>
+          </tr>
+          <tr>
+            <td>Encodeur (NVENC / AMF / x264)</td>
+            <td><span class="pill pill-local">Local</span></td>
+            <td>Dépend du GPU. Jamais touché, jamais écrasé.</td>
+          </tr>
+          <tr>
+            <td>video_device_id, device_id</td>
+            <td><span class="pill pill-local">Local</span></td>
+            <td>Webcam et micro physiques, propres à chaque poste.</td>
+          </tr>
+          <tr>
+            <td>monitor_id, window</td>
+            <td><span class="pill pill-local">Local</span></td>
+            <td>Captures d'écran, de fenêtre et de jeu.</td>
+          </tr>
+          <tr>
+            <td>global.ini / user.ini</td>
+            <td><span class="pill pill-local">Local</span></td>
+            <td>Thème, disposition des docks, raccourcis globaux. Rien à y gagner.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout">
+      <div class="callout-label">Pourquoi la clé de flux sort du serveur</div>
+      <p>La lecture se faisant sans identifiants, une adresse devinée donnerait à un inconnu le droit de diffuser sur la chaîne de l'équipe si la clé y figurait. Hors du serveur, le dossier partagé ne contient plus rien de sensible.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Les périphériques, ou pourquoi une simple copie de fichiers échoue</h2>
+    <p>Une source « Webcam » n'enregistre pas <em>une webcam</em> mais un identifiant matériel précis :</p>
+    <p><code>"video_device_id": "Logitech C920 HD Pro\{5d5ec5d2-...}"</code></p>
+    <p>Marc a une C920, Bob une Elgato Facecam. Bob reçoit la collection, sa source pointe vers un appareil absent : <strong>écran noir</strong>. Il la reconfigure. La semaine suivante, la synchronisation ré-impose la C920 de Marc, et l'écran redevient noir. Au bout de deux fois, l'équipe abandonne l'outil.</p>
+
+    <h3>La parade</h3>
+    <p>L'agent mémorise ces identifiants par machine et les réinjecte après chaque réception. La détection est <strong>automatique par type de source</strong> — aucune convention de nommage à respecter, rien à déclarer.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Type de source</th><th>Clés gardées locales</th></tr></thead>
+        <tbody>
+          <tr><td>dshow_input</td><td>video_device_id, audio_device_id</td></tr>
+          <tr><td>wasapi_input_capture / wasapi_output_capture</td><td>device_id</td></tr>
+          <tr><td>monitor_capture / display_capture</td><td>monitor_id</td></tr>
+          <tr><td>window_capture / game_capture</td><td>window</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>Seules <strong>ces clés d'identification</strong> restent locales — pas tout le réglage de la source. La résolution de la webcam, son FPS, ses filtres, sa position, son volume et son délai audio restent pilotés par l'équipe.</p>
+
+    <h3>À l'usage</h3>
+    <ul class="plain">
+      <li><strong>Première synchro chez Bob</strong> — rien n'est encore mémorisé. Le dock affiche « 2 sources à configurer : Webcam, Micro ». Bob les règle une fois.</li>
+      <li><strong>Toutes les suivantes</strong> — automatique, il n'y retouche jamais.</li>
+      <li><strong>Marc ajoute une caméra à la scène</strong> — elle apparaît dans la liste « à configurer » chez chacun, une seule fois.</li>
+      <li><strong>Bob change de webcam</strong> — l'agent relit ses réglages à la fermeture d'OBS. Capturé tout seul.</li>
+    </ul>
+    <p>La clé de mémorisation est le <strong>nom</strong> de la source, pas son UUID : l'UUID change si quelqu'un recrée la source, le nom survit.</p>
+
+    <div class="callout">
+      <div class="callout-label">Astuce de composition</div>
+      <p>Donner un <em>bounding box</em> (« Ajuster à l'écran ») aux sources matérielles dans la collection partagée. La position devient indépendante de la résolution native, donc la même transformation fonctionne chez tout le monde, quel que soit l'écran ou la webcam.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Décisions tranchées</h2>
+    <p class="sub">Les arbitrages retenus, et ce qu'ils écartent.</p>
+
+    <div class="decisions">
+      <div class="decision">
+        <h3>HTTP en lecture, FTP en écriture</h3>
+        <p>Un hébergement web mutualisé à quelques euros par mois donne exactement ça : un dossier où l'on dépose en FTP, et qui est servi en HTTP. Le publieur saisit ses identifiants une fois ; l'équipe ne reçoit qu'une adresse.</p>
+        <p class="because"><b>Pourquoi pas WebDAV</b>Techniquement supérieur — écriture conditionnelle, copie côté serveur, archivage gratuit — mais il suppose un Nextcloud ou un serveur configuré. C'est hors sol pour un streamer, et même une équipe n'a pas forcément quelqu'un pour l'administrer. Un outil qui exige une compétence système ne sortira jamais de l'équipe qui l'a écrit.</p>
+      </div>
+
+      <div class="decision">
+        <h3>Un binaire Go, pas un script .bat</h3>
+        <p>Un batch sait télécharger (<code>curl.exe</code> est livré avec Windows), vérifier des empreintes (<code>certutil</code>) et lancer OBS en attendant sa fermeture. Mais il n'a <strong>aucun parseur JSON</strong>, alors que tout l'outil consiste à ouvrir une collection de scènes pour y remplacer des identifiants de périphériques et des chemins.</p>
+        <p class="because"><b>Et PowerShell ?</b>Deux obstacles rédhibitoires. Son <code>ConvertTo-Json</code> en version 5.1 — celle installée par défaut — tronque à une profondeur de 2, réordonne les clés et ré-échappe l'Unicode : sur une collection profondément imbriquée, le risque n'est pas un plantage visible mais une corruption silencieuse du fichier que toute l'équipe téléchargera ensuite. Et un .bat qui lance PowerShell en contournement de politique pour écrire des fichiers téléchargés dans %APPDATA% présente la signature comportementale d'un dropper : les antivirus le suppriment, parfois sans prévenir.</p>
+      </div>
+
+      <div class="decision">
+        <h3>Distribué en Release, jamais compilé par l'utilisateur</h3>
+        <p>GitHub Actions produit le binaire à chaque version publiée. L'utilisateur télécharge un fichier et le lance.</p>
+        <p class="because"><b>Pourquoi</b>Un projet libre ne doit rien exiger d'une chaîne de compilation. C'est aussi ce qui permet de sortir l'adresse du serveur du binaire : elle devient une donnée saisie, et le même exécutable sert toutes les équipes. Accessoirement, la même base compile pour macOS et Linux presque gratuitement.</p>
+      </div>
+
+      <div class="decision">
+        <h3>Un lanceur, pas un résident</h3>
+        <p>L'agent démarre avec le raccourci, lance OBS, et meurt avec lui.</p>
+        <p class="because"><b>Pourquoi</b>Il n'a rien à faire quand OBS ne tourne pas. Et travailler hors session donne accès aux fichiers dans un état cohérent, ce qui supprime toute la mécanique de rechargement à chaud.</p>
+      </div>
+
+      <div class="decision">
+        <h3>Le profil n'est pas synchronisé comme fichier</h3>
+        <p>L'agent écrit quelques clés ciblées dans <code>basic.ini</code> — canvas et FPS. Le reste du profil de chaque membre est laissé intact.</p>
+        <p class="because"><b>Pourquoi</b>Remplacer le profil entier écraserait l'encodeur, les périphériques audio, les chemins d'enregistrement et la clé de flux — précisément ce qui diffère d'une machine à l'autre.</p>
+      </div>
+
+      <div class="decision">
+        <h3>Publication sur intention, pas sur conflit</h3>
+        <p>Un seul numéro de version monotone dans le manifeste. Pas de verrous, pas de fusion automatique.</p>
+        <p class="because"><b>Pourquoi</b>Deux versions d'une collection de scènes ne se fusionnent pas : le dernier qui publie a raison, autant que ce soit un choix conscient. Le risque réel n'est pas le conflit mais <strong>l'oubli de publier</strong> — d'où la détection de divergence locale et la publication à la fermeture.</p>
+      </div>
+
+      <div class="decision">
+        <h3>Dix versions conservées côté serveur</h3>
+        <p>Chaque publication archive la collection et le manifeste précédents. Le dock propose de revenir en arrière.</p>
+        <p class="because"><b>Pourquoi</b>Quelques mégaoctets de JSON. Sans copie côté serveur, l'archivage coûte un téléversement — négligeable sur du JSON, ce qui est justement pourquoi on n'archive pas les assets. Ça sauve une soirée de diffusion quand une publication casse tout.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Conséquences du passage en logiciel libre</h2>
+    <p class="sub">Notre configuration cesse d'être la spécification : elle n'en est qu'un cas particulier.</p>
+
+    <ul class="plain">
+      <li><strong>Rien de codé en dur.</strong> Adresse de la régie, noms de la collection et du profil, dossier d'assets : tout se configure. Pas de valeur <code>TEAM</code> en constante.</li>
+      <li><strong>Aucune compétence système exigée.</strong> C'est le critère d'acceptation de toute décision d'hébergement. Un membre colle une adresse ; le publieur a besoin d'un hébergement web, pas d'un serveur.</li>
+      <li><strong>L'hypothèse d'un seul éditeur devient explicite.</strong> Chez nous, une personne publie et une seule diffuse à la fois. Ailleurs, deux membres retoucheront les scènes en parallèle. La détection de divergence les protège, mais cela doit être documenté comme un choix assumé, pas comme un présupposé invisible.</li>
+      <li><strong>Le premier lancement est la vitrine.</strong> Pour un outil qu'on découvre, tout se joue entre le téléchargement et le premier stream. C'est là que doit aller le soin, pas dans les options.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Points ouverts</h2>
+    <p class="sub">Ce qui reste à décider avant d'écrire la première ligne.</p>
+
+    <div class="open-item">
+      <div class="open-mark">→</div>
+      <p><strong>FTP simple ou SFTP ?</strong> Le FTP transmet les identifiants en clair. Les hébergeurs proposent souvent FTPS ou SFTP ; les gérer tous les trois n'est pas coûteux et évite d'exposer un mot de passe.</p>
+    </div>
+    <div class="open-item">
+      <div class="open-mark">→</div>
+      <p><strong>La licence.</strong> Sans lien avec le code d'OBS, le projet est libre de son choix — une licence permissive maximise l'adoption, une licence copyleft protège les contributions.</p>
+    </div>
+    <div class="open-item">
+      <div class="open-mark">→</div>
+      <p><strong>Le volume d'assets.</strong> Quelques Mo d'overlays ou plusieurs Go de vidéos ? Ça décide de la stratégie de cache local et du temps d'attente au lancement.</p>
+    </div>
+    <div class="open-item">
+      <div class="open-mark">→</div>
+      <p><strong>La publication : automatique ou sur demande ?</strong> Proposer systématiquement à la fermeture en cas de divergence, ou n'agir que si le bouton a été coché. La première option élimine l'oubli, la seconde évite de publier un bricolage de dernière minute.</p>
+    </div>
+    <div class="open-item">
+      <div class="open-mark">→</div>
+      <p><strong>Extensions possibles.</strong> D'autres canaux d'écriture pour les équipes sans hébergement — un dépôt GitHub via son API, ou un simple dossier « à téléverser » préparé par l'agent. Et obs-websocket, pour un bouton « Recevoir maintenant » en cours de session.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span>Note de conception v3 — synchronisation de régie OBS</span>
+    <span>16 septembre 2026</span>
+  </footer>
+
+</div>
